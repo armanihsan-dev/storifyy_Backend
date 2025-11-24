@@ -1,0 +1,6 @@
+node_modules
+.env
+storage
+pro.js
+test.js
+package-lock.json
