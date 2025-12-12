@@ -1,6 +1,7 @@
 import mongoose, { Schema } from 'mongoose'
 import bcrypt from 'bcrypt'
 
+
 const userSchema = new Schema({
     name: {
         type: String,
@@ -29,6 +30,11 @@ const userSchema = new Schema({
         type: String,
         minLength: 4
     },
+    maxStorageInBytes: {
+        type: Number,
+        default: 1 * 1024 ** 3,
+        required: true
+    },
     deleted: {
         type: Boolean,
         default: false
@@ -41,17 +47,6 @@ const userSchema = new Schema({
     strict: 'throw', timestamps: true
 })
 
-userSchema.pre('save', async function (next) {
-    // If there is NO password (Google login), skip hashing
-    if (!this.password) return next();
-
-    // If password is not modified (already hashed), skip hashing
-    if (!this.isModified("password")) return next();
-
-    // Otherwise hash the password
-    this.password = await bcrypt.hash(this.password, 12);
-    next();
-});
 
 userSchema.pre(/^find/, function (next) {
     // If the query explicitly asks for deleted users, skip the default filter
@@ -59,7 +54,6 @@ userSchema.pre(/^find/, function (next) {
         delete this.getQuery().includeDeleted; // remove flag
         return next();
     }
-
     // Otherwise only return non-deleted
     this.where({ deleted: { $ne: true } });
     next();

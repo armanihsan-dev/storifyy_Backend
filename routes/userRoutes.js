@@ -12,6 +12,11 @@ import fs from 'fs';              // classic fs for streams
 import fsp from 'fs/promises';
 import path from 'path';
 import File from "../models/fileModel.js";
+import redisClient from "../config/redis.js";
+import { validate } from './../middlewares/validate.js'
+import { loginSchema, registerSchema } from "../validators/authSchema.js";
+import { authLimiter } from "../middlewares/Limiter.js";
+import Directory from "../models/directoryModel.js";
 const router = express.Router();
 
 
@@ -87,15 +92,13 @@ router.post('/share/:email', checkAuth, async (req, res) => {
   }
 });
 
+router.post("/register", authLimiter, validate(registerSchema, 'register'), register);
 
+router.post('/login', authLimiter, validate(loginSchema, 'login'), login)
 
-router.post('/register', register)
-
-router.post('/login', login)
-
-router.get('/', checkAuth, (req, res) => {
+router.get('/', checkAuth, async (req, res) => {
   const user = req.user;
-
+  const userRootDir = await Directory.findOne({ userId: user._id }).lean()
   // NEVER send password, even hashed
   const userToBeSent = {
     _id: user._id,
@@ -103,6 +106,8 @@ router.get('/', checkAuth, (req, res) => {
     email: user.email,
     role: user.role,
     picture: user.picture,
+    maxStorage: user.maxStorageInBytes,
+    usedStorage: userRootDir.size,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
     hasPassword: !!user.password
@@ -111,11 +116,10 @@ router.get('/', checkAuth, (req, res) => {
   res.status(200).json(userToBeSent);
 });
 
-
-
 router.post('/logout', async (req, res) => {
   const { sid } = req.signedCookies
-  const session = await Session.findByIdAndDelete(sid)
+  const redisKey = `session:${sid}`
+  const session = await redisClient.del(redisKey)
   res.clearCookie('sid')
   res.status(200).json({ message: "Logged Out!" })
 })
@@ -134,7 +138,6 @@ router.post('/logoutfromAllAccounts', async (req, res) => {
 })
 router.post('/logoutuser/:userId', checkAuth, checkRole, logoutUserById)
 router.get('/users', checkAuth, checkRole, getAllUsers);
-
 
 router.delete('/softdeleteuser/:userid', checkAuth, checkRole, softDeleteUser);
 router.delete('/harddeleteuser/:userid', checkAuth, checkRole, hardDeleteUser);

@@ -1,10 +1,15 @@
 
 import mongoose, { Schema } from "mongoose";
+import { number } from "zod";
 
 
 const fileSchema = new Schema({
     name: {
         type: String,
+        required: true
+    },
+    size: {
+        type: Number,
         required: true
     },
     extension: {

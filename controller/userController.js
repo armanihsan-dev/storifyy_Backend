@@ -1,87 +1,68 @@
 import User from './../models/userModel.js';
-import mongoose, { Types } from "mongoose";
+import mongoose from "mongoose";
 import Directory from './../models/directoryModel.js';
-import bcrypt from 'bcrypt'
 import Session from './../models/sessionModel.js';
 import File from './../models/fileModel.js';
+import { loginUser, registerUser } from './../services/auth.service.js';
+import OTP from '../models/otpModel.js';
+import createDOMPurify from 'dompurify';
+import { JSDOM } from 'jsdom';
+import redisClient from '../config/redis.js';
 
+const window = new JSDOM('').window;
+const DOMPurify = createDOMPurify(window);
 
 export const ROLE_HIERARCHY = ["User", "Manager", "Admin", "Owner"];
 
 export const register = async (req, res, next) => {
-    const { name, email, password } = req.body
-
-    const hashedPassword = await bcrypt.hash(password, 12)
-    const session = await mongoose.startSession()
-
     try {
-        const rootDirId = new Types.ObjectId();
-        const userId = new Types.ObjectId();
+        const { name, email, password, otp } = req.body
 
-        session.startTransaction()
-        await Directory.insertOne({
-            _id: rootDirId,
-            name: `root-${email}`,
-            parentDirId: null,
-            userId
-        }, { session })
-        await User.insertOne({
-            _id: userId,
-            name,
-            email,
-            password: hashedPassword,
-            rootDirId
-        }, { session })
-        await session.commitTransaction()
-
-        res.status(201).json({ message: "User Registered" })
-    } catch (err) {
-        await session.abortTransaction()
-        if (err.code == 121) {
-            res.status(401).json({ error: "Invalid Fields. Please enter valid details" })
-        } else if (err.code === 11000) {
-            if (err.keyValue.email) {
-                return res.status(409).json({
-                    error: "A user with this email already exist.",
-                    message: "A user with this email address already exists. Please try logging in or use a different email."
-                })
-            }
-        } else {
-            next(err)
+        // Call service → contains hashing, OTP check, DB transaction
+        const existingUser = await User.findOne({ email }).lean()
+        if (existingUser) {
+            return res.status(409).json({ error: "User with this email already exists" })
         }
+        await registerUser({ name, email, password, otp });
+        const otpRecord = await OTP.findOne({ email, otp });
+        if (otpRecord) {
+            await otpRecord.deleteOne()
+        }
+        res.status(201).json({ message: "User registered successfully" });
+    } catch (err) {
+        next(err); // Central error handler will catch
     }
+};
 
-}
 export const login = async (req, res, next) => {
-    const { email, password } = req.body
+    try {
+        const { email, password } = req.body
 
-    const user = await User.findOne({ email })
-    if (!user) {
-        return res.status(404).json({ error: 'Invalid Credentials' })
-    }
+        // Call service → does all business logic
+        const { sessionId, sessionExpiryTime } = await loginUser(email, password);
 
-    const isPasswordValid = user.comparePassword(password)
-    if (!isPasswordValid) {
-        return res.status(404).json({ error: 'Invalid Credentials' })
+        // Set cookie here (controller responsibility)
+        res.cookie('sid', sessionId, {
+            httpOnly: true,
+            signed: true,
+            sameSite: 'lax',
+            maxAge: sessionExpiryTime
+        });
+
+        res.json({ message: "Logged in successfully" });
+    } catch (err) {
+        next(err);
     }
-    const allSessions = await Session.find({ userId: user.id })
-    if (allSessions.length >= 2) {
-        await allSessions[0].deleteOne()
-    }
-    const session = await Session.create({ userId: user._id })
-    res.cookie('sid', session.id, {
-        httpOnly: true,
-        signed: true,
-        maxAge: 60 * 1000 * 60 * 24 * 7
-    })
-    res.json({ message: 'logged in' })
-}
+};
 
 export const getAllUsers = async (req, res) => {
     try {
         let query = {};
+        const sessionId = req.signedCookies.sid;
+        const redisKey = `session:${sessionId}`;
 
         // Owner can see all users including deleted
+
         if (req.user.role === "Owner") {
             query = { includeDeleted: true };
         } else {
@@ -94,7 +75,7 @@ export const getAllUsers = async (req, res) => {
 
         const usersWithStatus = await Promise.all(
             users.map(async (user) => {
-                const session = await Session.findOne({ userId: user._id });
+                const session = await redisClient.json.get(redisKey);
                 return {
                     ...user,
                     status: session ? "Logged-In" : "Logged-Out",
@@ -116,7 +97,6 @@ export const getAllUsers = async (req, res) => {
         });
     }
 };
-
 
 
 export const logoutUserById = async (req, res) => {

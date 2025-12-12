@@ -1,4 +1,5 @@
 
+import redisClient from '../config/redis.js';
 import Session from '../models/sessionModel.js';
 import User from './../models/userModel.js';
 
@@ -9,7 +10,9 @@ export default async function checkAuth(req, res, next) {
     res.clearCookie('sid')
     return res.status(401).json({ error: "Not logged!" });
   }
-  const session = await Session.findById(sid)
+  
+  const rediskey = `session:${sid}`
+  const session = await redisClient.json.get(rediskey)
   if (!session) {
     res.clearCookie('sid')
     return res.status(200).json({ message: "Logged Out!" })

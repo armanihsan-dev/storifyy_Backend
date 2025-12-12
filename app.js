@@ -9,19 +9,25 @@ import authRoutes from './routes/authRoutes.js'
 import checkAuth from "./middlewares/authMiddleware.js";
 import { connectDB } from './config/db.js';
 import shareRoutes from './routes/shareRoutes.js'
-dotenv.config(); // must be called before using process.env
+import helmet from 'helmet'
+import { limiter } from './middlewares/Limiter.js';
+
 await connectDB()
-dotenv.config();
+
 const app = express();
-export const mySecretKey = 'Procodrr-Storifyy-123'
+export const mySecretKey = process.env.MY_SECRET_KEY
 
 app.use(express.json());
 app.use(cookieParser(mySecretKey))
+app.use(helmet())
 
+
+
+// app.use(limiter)
 
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: process.env.ORIGIN_CLIENT_URL,
     credentials: true,
   })
 );
@@ -36,11 +42,10 @@ app.use("/auth", authRoutes);
 app.use('/share', shareRoutes)
 app.use((err, req, res, next) => {
   console.log(err);
-  res.status(err.status || 500).json({ message: "Something went wrong!!" });
+  res.status(err.status || 500).json({ message: "Something went wrong!!", error: err });
 });
 
-
-app.listen(3000, () => {
+app.listen(process.env.NODE_SERVER_PORT, () => {
   console.log(`Server Started`);
 });
 

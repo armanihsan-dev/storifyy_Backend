@@ -42,6 +42,12 @@ await ensureCollection("directories", {
             name: { bsonType: "string" },
             parentDirId: { bsonType: ["objectId", "null"] },
             userId: { bsonType: "objectId" },
+            isStarred: {
+                bsonType: "bool",
+            },
+            size: {
+                bsonType: "int"
+            },
             __v: {
                 bsonType: 'int'
             },
@@ -61,6 +67,9 @@ await ensureCollection("users", {
             role: {
                 bsonType: "string",
                 enum: ['Admin', 'Manager', "User", "Owner"],
+            },
+            maxStorageInBytes: {
+                bsonType: ["int", "long", "double"]
             },
             deleted: {
                 bsonType: "bool"
@@ -83,6 +92,9 @@ await ensureCollection("files", {
             _id: { bsonType: "objectId" },
             extension: { bsonType: "string" },
             name: { bsonType: "string" },
+            size: {
+                bsonType: "int"
+            },
             parentDirId: { bsonType: "objectId" },
             __v: {
                 bsonType: 'int'

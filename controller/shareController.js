@@ -3,12 +3,14 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const projectRoot = path.resolve(__dirname, "..");
 import path from "path";
-import fs from "fs/promises";
 import Share from "../models/shareModel.js";
 import File from "../models/fileModel.js";
 import User from "../models/userModel.js";
 import Directory from './../models/directoryModel.js';
 import DirectoryShare from './../models/directoryShareModel.js';
+import { emailSchema } from '../validators/authSchema.js'
+import z from "zod/v4";
+import { purify } from './../config/dom-purify.js';
 
 
 export async function isDirAccessible(dirId, userId) {
@@ -187,16 +189,16 @@ export const deleteFile = async (req, res) => {
         }
 
         // Delete from disk
-        const filePath = path.join("storage", `${id}${fileData.extension}`);
-        try {
-            await fs.unlink(filePath);
-        } catch (err) {
-            console.warn("⚠ File missing on disk:", err.message);
-        }
+        // const filePath = path.join("storage", `${id}${fileData.extension}`);
+        // try {
+        //     await fs.unlink(filePath);
+        // } catch (err) {
+        //     console.warn("⚠ File missing on disk:", err.message);
+        // }
 
         // Delete shares & file
         await Share.deleteMany({ fileId: id }).session(session);
-        await File.deleteOne({ _id: id }).session(session);
+        // await File.deleteOne({ _id: id }).session(session);
 
         await session.commitTransaction();
         session.endSession();
@@ -219,9 +221,13 @@ export const shareByEmail = async (req, res) => {
     try {
 
         const { fileid, role } = req.body
-        const email = req.params.email
+        const email = purify.sanitize(req.params.email)
         const user = req.user
 
+        const result = emailSchema.safeParse({ email })
+        if (!result.success) {
+            return res.status(400).json({ error: "Invalid email format" });
+        }
         const file = await File.findById(fileid)
         if (!file) {
             return res.status(404).json({ error: "File not found" });
@@ -292,10 +298,14 @@ export const shareDirectoryByEmail = async (req, res) => {
     const session = await DirectoryShare.startSession()
     session.startTransaction();
     try {
-        const { email } = req.params
+        const email = purify.sanitize(req.params.email)
         const { directoryId, role } = req.body
         const user = req.user
-
+        const result = emailSchema.safeParse({ email })
+        if (!result.success) {
+            console.log(result);
+            return res.status(400).json({ error: "Invalid email format" });
+        }
         const directory = await Directory.findById(directoryId).session(session)
         if (!directory) {
             await session.abortTransaction();

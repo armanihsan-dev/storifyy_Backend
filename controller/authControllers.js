@@ -1,15 +1,15 @@
-import OTP from "../models/otpModel.js";
 import { sendOtpService } from "../services/sendOtp.js";
 import verifyGoogleIDToken from '../services/googleIDTokenVerification.js'
 import User from './../models/userModel.js';
 import Directory from './../models/directoryModel.js';
 import mongoose, { Types } from "mongoose";
-import Session from './../models/sessionModel.js';
+import redisClient from "../config/redis.js";
+import OTP from "../models/otpModel.js";
 
 export const sendOtp = async (req, res, next) => {
     try {
-
         const { email } = req.body
+
         if (!email) {
             return res.status(400).json({ error: "Email is required" });
         }
@@ -28,25 +28,22 @@ export const sendOtp = async (req, res, next) => {
 
 export const verifyOtp = async (req, res, next) => {
     try {
+        const { email, otp } = req.body;
 
-        const { email, otp } = req.body
-        if (!email || !otp) {
-            return res.status(400).json({ error: "Email and OTP are required" });
-        }
-        // Here you would typically verify the OTP against a stored value
-        const otpRecord = await OTP.findOne({ email })
+        const otpRecord = await OTP.findOne({ email });
 
         if (!otpRecord) {
-            return res.status(400).json({ error: "No OTP found for this email" });
+            return res.status(400).json({ error: "OTP not found or expired" })
         }
-        if (otpRecord.otp == otp) {
-            await otpRecord.deleteOne()
-            return res.status(200).json({ message: "OTP verified successfully" });
+
+        if (otpRecord.otp !== otp) {
+            return res.status(400).json({ error: "Wrong OTP !!" })
         }
-    } catch (error) {
-        next(error)
+        res.status(200).json({ message: "OTP verified successfully" });
+    } catch (err) {
+        next(err);
     }
-}
+};
 
 export const loginWithGoogle = async (req, res, next) => {
     const { id_token } = req.body;
@@ -57,33 +54,45 @@ export const loginWithGoogle = async (req, res, next) => {
         let existingUser = await User.findOne({ email });
 
 
+        // EXISTING USER FLOW
         if (existingUser) {
+
             if (existingUser.deleted) {
                 return res.status(403).json({ message: "This account has been deleted. Please contact with admin to recover it." });
             }
-            // USER EXISTS → create session directly
-            const sessions = await Session.find({ userId: existingUser._id });
 
-            if (sessions.length >= 2) {
-                await sessions[0].deleteOne();
+            const sessions = await redisClient.ft.search('userIdIdx', `@userId:{${existingUser._id}}`, { RETURN: [] })
+            if (sessions.total >= 2) {
+                await redisClient.del(sessions.documents[0].id)
             }
 
-            const session = await Session.create({ userId: existingUser._id });
+            const sessionId = crypto.randomUUID()
+            const redisKey = `session:${sessionId}`
+
+            const redisSession = await redisClient.json.set(redisKey, '$', { userId: existingUser._id })
+
+            const sessionExpiryTime = 7 * 24 * 60 * 60 // seconds
+            redisClient.expire(redisKey, sessionExpiryTime)
+
             if (!existingUser.picture.includes('googleusercontent.com')) {
                 existingUser.picture = picture
                 await existingUser.save()
             }
-            res.cookie('sid', session.id, {
+
+            res.cookie('sid', sessionId, {
                 httpOnly: true,
                 signed: true,
-                maxAge: 7 * 24 * 60 * 60 * 1000,
+                maxAge: sessionExpiryTime * 1000,
+                sameSite: 'lax'
             });
+
             return res.status(200).json({ message: "Logged in existing user" });
         }
 
+
         // NEW USER FLOW
-        const session = await mongoose.startSession();
-        session.startTransaction();
+        const mongoSession = await mongoose.startSession();
+        mongoSession.startTransaction();
 
         try {
             const userId = new Types.ObjectId();
@@ -94,7 +103,7 @@ export const loginWithGoogle = async (req, res, next) => {
                 name: `root-${email}`,
                 parentDirId: null,
                 userId
-            }], { session });
+            }], { session: mongoSession });
 
             await User.create([{
                 _id: userId,
@@ -102,27 +111,35 @@ export const loginWithGoogle = async (req, res, next) => {
                 email,
                 picture,
                 rootDirId: rootId
-            }], { session });
+            }], { session: mongoSession });
 
-            await session.commitTransaction();
-            session.endSession();
+            await mongoSession.commitTransaction();
+            mongoSession.endSession();
 
-            // CREATE SESSION AFTER COMMIT
-            const userSession = await Session.create({ userId });
+            // CREATE REDIS SESSION
+            const sessionId = crypto.randomUUID()
+            const redisKey = `session:${sessionId}`
 
-            res.cookie('sid', userSession.id, {
+            const redisSession = await redisClient.json.set(redisKey, '$', { userId })
+
+            const sessionExpiryTime = 7 * 24 * 60 * 60 // seconds
+            redisClient.expire(redisKey, sessionExpiryTime)
+
+            res.cookie('sid', sessionId, {
                 httpOnly: true,
                 signed: true,
-                maxAge: 7 * 24 * 60 * 60 * 1000
+                sameSite: 'lax',
+                maxAge: sessionExpiryTime * 1000
             });
 
-            res.status(201).json({ message: "Created new user and logged in" });
+            return res.status(201).json({ message: "Created new user and logged in" });
 
         } catch (err) {
-            await session.abortTransaction();
-            session.endSession();
+            await mongoSession.abortTransaction();
+            mongoSession.endSession();
             next(err);
         }
+
 
     } catch (err) {
         next(err);

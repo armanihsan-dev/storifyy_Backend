@@ -11,11 +11,10 @@ export async function sendOtpService(email, title = "") {
     { otp, createdAt: new Date() },
     { upsert: true, new: true }
   );
-
   // Create reusable transporter using Gmail SMTP
   const transporter = nodemailer.createTransport({
-    host: "smtp.gmail.com",
-    port: 587,
+    host: process.env.NODE_MAILER_HOST_URL,
+    port: process.env.NODE_MAILER_HOST_PORT,
     secure: false, // use TLS
     auth: {
       user: process.env.EMAIL_USER, // e.g. your Gmail

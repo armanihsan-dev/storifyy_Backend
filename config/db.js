@@ -4,7 +4,7 @@ import mongoose from "mongoose";
 
 export async function connectDB() {
     try {
-        await mongoose.connect('mongodb://fancy:fancy@127.0.0.1:27017/storageApp?replicaSet=rs0')
+        await mongoose.connect(process.env.MONGODB_SERVER_URL)
 
     } catch (error) {
         console.log(error);

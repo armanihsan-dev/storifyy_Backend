@@ -1,14 +1,11 @@
 import express from "express";
 import validateIdMiddleware from "../middlewares/validateIdMiddleware.js";
-import { createDirectory, deleteDirectory, deleteUserDirectory, getDirectory, renameDirectory } from "../controller/directoryControllers.js";
+import { createDirectory, deleteDirectory, deleteUserDirectory, getBreadcrumb, getDirectory, getStarredDirectories, renameDirectory, toggleStar } from "../controller/directoryControllers.js";
 import checkAuth from "../middlewares/authMiddleware.js";
 import { checkRole } from "../middlewares/checkRole.js";
 import Directory from "../models/directoryModel.js";
 import User from "../models/userModel.js";
 import File from "../models/fileModel.js";
-import { rm } from "fs/promises";
-import mongoose from "mongoose";
-import { truncateSync } from "fs";
 
 const ROLE_HIERARCHY = ["User", "Manager", "Admin", "Owner"];
 
@@ -18,7 +15,7 @@ const router = express.Router();
 router.param('id', validateIdMiddleware)
 router.param('parentDirId', validateIdMiddleware)
 // Read
-router.get("/:id?", getDirectory);
+router.get("/:id([0-9a-fA-F]{24})?", getDirectory);
 
 router.post("/:parentDirId?", createDirectory);
 
@@ -116,7 +113,25 @@ router.put('/renameUserDirectory/:dirId', checkAuth, checkRole, async (req, res)
     }
 })
 
-
-
 router.delete('/deleteUserDirectory/:id', checkAuth, checkRole, deleteUserDirectory)
+
+
+//get a directory number of child fiels and directories
+router.get('/dirChilds/:dirId', checkAuth, async (req, res) => {
+    try {
+        const { dirId } = req.params;
+        const fileCount = await File.countDocuments({ parentDirId: dirId });
+        const dirCount = await Directory.countDocuments({ parentDirId: dirId });
+        res.status(200).json({ fileCount, dirCount });
+
+    } catch (err) {
+        res.status(500).json({ error: "Can't get child files and directories", err })
+    }
+})
+
+router.patch('/star/:dirId', checkAuth, toggleStar)
+router.get('/breadcrumb/:dirId', checkAuth, getBreadcrumb)
+
+//get starred directories
+router.get('/starred', checkAuth, getStarredDirectories)
 export default router;
