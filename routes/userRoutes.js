@@ -1,6 +1,6 @@
 import express from "express";
 import checkAuth, { isStrongPassoword } from '../middlewares/authMiddleware.js';
-import { softDeleteUser, getAllUsers, login, logoutUserById, register, hardDeleteUser, changeRole, recoverUser } from './../controller/userController.js';
+import { softDeleteUser, getAllUsers, login, logoutUserById, register, hardDeleteUser, changeRole, recoverUser, getShareableUsers } from './../controller/userController.js';
 import Session from "../models/sessionModel.js";
 import { checkRole } from './../middlewares/checkRole.js';
 import User from "../models/userModel.js";
@@ -106,13 +106,13 @@ router.get('/', checkAuth, async (req, res) => {
     email: user.email,
     role: user.role,
     picture: user.picture,
+    maxUploadBytes: user.maxUploadBytes,
     maxStorage: user.maxStorageInBytes,
     usedStorage: userRootDir.size,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
     hasPassword: !!user.password
   };
-
   res.status(200).json(userToBeSent);
 });
 
@@ -241,6 +241,9 @@ router.post('/verifyotp', checkAuth, async (req, res, next) => {
     next(error)
   }
 })
+
+//for file and directory share dialog
+router.get('/shareable', checkAuth, getShareableUsers)
 
 
 

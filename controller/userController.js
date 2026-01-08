@@ -314,3 +314,36 @@ export const recoverUser = async (req, res) => {
         res.status(500).json({ error: "Internal Server Error" })
     }
 }
+
+//get user photo,name and email for file and dir share dialog
+export const getShareableUsers = async (req, res) => {
+    try {
+        const { q = '', limit = 10 } = req.query
+
+        const query = {
+            deleted: false,
+            _id: { $ne: req.user.id },
+        }
+
+        // Only apply search if user typed something
+        if (q.trim()) {
+            query.$or = [
+                { name: { $regex: q, $options: 'i' } },
+                { email: { $regex: q, $options: 'i' } },
+            ]
+        }
+
+        const users = await User.find(query)
+            .select('name email picture')
+            .sort({ name: 1 })
+            .limit(Number(limit))
+            .lean()
+
+        res.status(200).json({ users }) 
+    } catch (error) {
+        console.error('getShareableUsers:', error)
+        res.status(500).json({ error: 'Failed to fetch users' })
+    }
+}
+
+

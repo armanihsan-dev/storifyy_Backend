@@ -7,6 +7,7 @@ import mongoose from 'mongoose';
 import DirectoryShare from '../models/directoryShareModel.js';
 import { purify } from './../config/dom-purify.js';
 import { updateParentDirectorySize } from './fileController.js';
+import { deleteS3Objects } from '../config/s3.js';
 
 
 export const getDirectory = async (req, res) => {
@@ -106,7 +107,7 @@ export const getBreadcrumb = async (req, res, next) => {
     }
 };
 
-
+    
 
 
 export const renameDirectory = async (req, res, next) => {
@@ -177,13 +178,9 @@ export const deleteDirectory = async (req, res, next) => {
 
         const totalDeletedSize = totalSize + directoryData.size;
 
-        // Delete physical files
-        for (const file of files) {
-            try {
-                await rm(`./storage/${file._id}${file.extension}`);
-            } catch (_) { }
-        }
-
+        // Delete physical files from s3
+        const keys = files.map(({ _id, extension }) => ({ Key: `${_id}${extension}` }))
+        await deleteS3Objects(keys)
         // Delete documents
         await File.deleteMany({ _id: { $in: files.map(f => f._id) } })
             .session(session);

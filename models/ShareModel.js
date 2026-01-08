@@ -5,6 +5,9 @@ const shareSchema = new mongoose.Schema({
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: false },
     email: { type: String },
     role: { type: String, enum: ['viewer', 'editor'], default: 'viewer' },
+    sharedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+    }
 }, { timestamps: true });
 
 

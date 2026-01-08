@@ -6,13 +6,15 @@ import User from './../models/userModel.js';
 
 export default async function checkAuth(req, res, next) {
   const { sid } = req.signedCookies;
+
   if (!sid) {
     res.clearCookie('sid')
     return res.status(401).json({ error: "Not logged!" });
   }
-  
+
   const rediskey = `session:${sid}`
   const session = await redisClient.json.get(rediskey)
+
   if (!session) {
     res.clearCookie('sid')
     return res.status(200).json({ message: "Logged Out!" })

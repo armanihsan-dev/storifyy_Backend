@@ -32,8 +32,12 @@ const userSchema = new Schema({
     },
     maxStorageInBytes: {
         type: Number,
-        default: 1 * 1024 ** 3,
+        default: 500 * 1024 * 1024,
         required: true
+    },
+    maxUploadBytes: {
+        type: Number,
+        default: 100 * 1024 * 1024,
     },
     deleted: {
         type: Boolean,

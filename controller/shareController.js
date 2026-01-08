@@ -11,6 +11,7 @@ import DirectoryShare from './../models/directoryShareModel.js';
 import { emailSchema } from '../validators/authSchema.js'
 import z from "zod/v4";
 import { purify } from './../config/dom-purify.js';
+import { createGetSignedURL } from "../config/s3.js";
 
 
 export async function isDirAccessible(dirId, userId) {
@@ -44,53 +45,43 @@ export const previewFile = async (req, res, next) => {
             return res.status(404).json({ error: "File not found!" });
         }
 
-        // 2️⃣ Check ownership
-        const isOwner = fileData.userId.toString() === userId.toString();
-        let hasAccess = isOwner;
+        // 2️⃣ Ownership check
+        let hasAccess = fileData.userId.toString() === userId.toString();
 
-        // 3️⃣ If not owner → check file share or inherited shared directory
-        if (!isOwner) {
-            const fileShare = await Share.findOne({
-                fileId: id,
-                userId,
-            }).lean();
-
+        // 3️⃣ Shared access
+        if (!hasAccess) {
+            const fileShare = await Share.findOne({ fileId: id, userId }).lean();
             const inheritedAccess = await isDirAccessible(fileData.parentDirId, userId);
-
-            if (fileShare || inheritedAccess)
-                hasAccess = true;
+            if (fileShare || inheritedAccess) hasAccess = true;
         }
 
-        // 4️⃣ App owner always allowed
+        // 4️⃣ App owner override
         if (req.user.role === "Owner") hasAccess = true;
 
-        // 5️⃣ Final block
         if (!hasAccess) {
             return res.status(403).json({
-                error: "You do not have permission to preview this file!",
+                error: "You do not have permission to preview this file!"
             });
         }
 
-        // 6️⃣ File path
-        const filePath = `${projectRoot}/storage/${id}${fileData.extension}`;
+        // 5️⃣ Generate signed URL from S3
+        const key = `${id}${fileData.extension}`;
 
-        // 7️⃣ Handle download
-        if (req.query.action === "download") {
-            return res.download(filePath, fileData.name);
-        }
-
-        // 8️⃣ Preview
-        return res.sendFile(filePath, (err) => {
-            if (!res.headersSent && err) {
-                return res.status(404).json({ error: "File not found!" });
-            }
+        const signedURL = await createGetSignedURL({
+            key,
+            download: req.query.action === "download",
+            fileName: fileData.name
         });
 
+        // 6️⃣ Redirect client to AWS
+        return res.redirect(signedURL);
+
     } catch (error) {
-        console.log(error);
+        console.error(error);
         next(error);
     }
 };
+
 
 export const renameFile = async (req, res, next) => {
     try {
@@ -220,9 +211,12 @@ export const deleteFile = async (req, res) => {
 export const shareByEmail = async (req, res) => {
     try {
 
+
         const { fileid, role } = req.body
         const email = purify.sanitize(req.params.email)
         const user = req.user
+
+
 
         const result = emailSchema.safeParse({ email })
         if (!result.success) {
@@ -242,6 +236,7 @@ export const shareByEmail = async (req, res) => {
             userId: targetUser._id,
             email,
             role,
+            sharedBy: user._id
         });
         file.sharedWith = shareEntry._id
         await file.save()
@@ -298,9 +293,16 @@ export const shareDirectoryByEmail = async (req, res) => {
     const session = await DirectoryShare.startSession()
     session.startTransaction();
     try {
+
+
         const email = purify.sanitize(req.params.email)
         const { directoryId, role } = req.body
         const user = req.user
+
+        //cannot share with yourself        
+        if (email === user.email) {
+            return res.status(400).json({ error: "You cannot share directory with yourself" });
+        }
         const result = emailSchema.safeParse({ email })
         if (!result.success) {
             console.log(result);
@@ -597,6 +599,65 @@ export const getDirectoriesSharedByMe = async (req, res) => {
     }
 };
 
+export const getFilesSharedByMe = async (req, res) => {
+    try {
+        const user = req.user;
+
+        // 1. Get all file share entries where user is owner
+        const sharedEntries = await Share.find({
+            sharedBy: user._id
+        }).lean();
+
+        if (sharedEntries.length === 0) {
+            return res.status(200).json({ files: [] });
+        }
+
+        // 2. Get unique file IDs
+        const fileIds = [...new Set(sharedEntries.map(e => e.fileId))];
+
+        // 3. Fetch file metadata
+        const files = await File.find({ _id: { $in: fileIds } }).lean();
+
+        // 4. Fetch users
+        const userIds = [...new Set(sharedEntries.map(e => e.userId))];
+        const users = await User.find({ _id: { $in: userIds } })
+            .select("name email")
+            .lean();
+
+        const userMap = {};
+        users.forEach(u => userMap[u.email] = u);
+
+
+        // 5. Combine response
+        const response = files.map(file => {
+            const shareDetails = sharedEntries
+                .filter(e => e.fileId.toString() === file._id.toString())
+                .map(e => ({
+                    sharedWith: e.email,
+                    name: userMap[e.email]?.name || "Unknown User",
+                    accessType: e.role,
+                    sharedAt: e.
+                        createdAt
+                }));
+
+            return {
+                fileId: file._id,
+                name: file.name,
+                size: file.size,
+                extention: file.extension,
+                sharedWith: shareDetails
+            };
+        });
+
+        res.status(200).json({ files: response });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Failed to get shared files" });
+    }
+};
+
+
 export const revokeSharedDirectory = async (req, res) => {
     try {
         const { dirId, email } = req.body;
@@ -633,3 +694,37 @@ export const revokeSharedDirectory = async (req, res) => {
         return res.status(500).json({ error: "Something went wrong" });
     }
 };
+
+
+//revoke fileshare controller
+
+export const revokeFileShare = async (req, res) => {
+    try {
+        const { fileId, email } = req.body;
+        const user = req.user;
+        if (!fileId || !email) {
+            return res.status(400).json({ error: "fileId and email are required" });
+        }
+        // 1. Find share entry
+        const shareEntry = await Share.findOne({
+            fileId: fileId,
+            sharedBy: user._id,
+            email: email,
+        })
+        // 2. Prevent invalid revokes
+        if (!shareEntry) {
+            return res.status(404).json({ error: "Share entry not found!" });
+        }
+        // 3. Cannot revoke yourself accidentally
+        if (email === user.email) {
+            return res.status(400).json({ error: "You cannot revoke your own access!" });
+        }
+        // 4. Delete share entry
+        await shareEntry.deleteOne();
+        return res.status(200).json({ message: "File access revoked successfully!" });
+    } catch (err) {
+        console.log(err);
+        res.status(500).json({ error: "Something went wrong revoking file" });
+    }
+}
+

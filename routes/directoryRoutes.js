@@ -6,6 +6,7 @@ import { checkRole } from "../middlewares/checkRole.js";
 import Directory from "../models/directoryModel.js";
 import User from "../models/userModel.js";
 import File from "../models/fileModel.js";
+import { requireActiveSubscription } from "../middlewares/subscription.js";
 
 const ROLE_HIERARCHY = ["User", "Manager", "Admin", "Owner"];
 
@@ -15,9 +16,9 @@ const router = express.Router();
 router.param('id', validateIdMiddleware)
 router.param('parentDirId', validateIdMiddleware)
 // Read
-router.get("/:id([0-9a-fA-F]{24})?", getDirectory);
+router.get("/:id([0-9a-fA-F]{24})?", requireActiveSubscription, getDirectory);
 
-router.post("/:parentDirId?", createDirectory);
+router.post("/:parentDirId?", requireActiveSubscription, createDirectory);
 
 router.patch("/:id", renameDirectory);
 

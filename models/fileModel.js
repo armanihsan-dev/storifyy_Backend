@@ -23,6 +23,9 @@ const fileSchema = new Schema({
     parentDirId: {
         type: Schema.Types.ObjectId,
         required: true
+    },
+    isUploading: {
+        type: Boolean,
     }
 }, { strict: 'throw', timestamps: true })
 
