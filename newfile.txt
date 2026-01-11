@@ -1,0 +1,52 @@
+ function uploadSingleFile({ file, uploadSignedURL, fileID }) {
+    // console.log('uploading single file', { file, uploadSignedURL, fileID });
+    return new Promise((resolve) => {
+      const uploadToast = toast(
+        <div className="flex items-center space-x-3">
+          <ClipLoader size={18} />
+          <span>Uploading {file.name}...</span>
+        </div>,
+        {
+          style: { background: 'white', color: 'black' },
+          position: 'top-center',
+        }
+      );
+
+      const xhr = new XMLHttpRequest();
+      xhr.open('PUT', uploadSignedURL, true);
+
+      xhr.upload.onprogress = (e) => {
+        const percent = ((e.loaded / e.total) * 100).toFixed(0);
+
+        toast(
+          <div className="flex flex-col gap-2">
+            <span>{percent}% uploaded</span>
+            <div className="w-40 bg-gray-300 rounded-full h-2">
+              <div
+                className="bg-pink-400 h-2 rounded-full"
+                style={{ width: `${percent}%` }}
+              />
+            </div>
+          </div>,
+          { id: uploadToast }
+        );
+      };
+
+      xhr.onload = async () => {
+        if (xhr.status === 200) {
+          await uploadComplete(fileID);
+          toast.success(`${file.name} uploaded!`, { id: uploadToast });
+        } else {
+          toast.error(`❌ Upload failed`, { id: uploadToast });
+        }
+        resolve();
+      };
+
+      xhr.onerror = () => {
+        toast.error(`❌ Upload failed`, { id: uploadToast });
+        resolve();
+      };
+
+      xhr.send(file);
+    });
+  }

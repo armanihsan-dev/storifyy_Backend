@@ -30,6 +30,6 @@ const fileSchema = new Schema({
 }, { strict: 'throw', timestamps: true })
 
 
-
+fileSchema.index({ name: 'text' })
 const File = mongoose.model('File', fileSchema)
 export default File

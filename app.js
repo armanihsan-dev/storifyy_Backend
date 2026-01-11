@@ -10,6 +10,8 @@ import authRoutes from './routes/authRoutes.js'
 import checkAuth from "./middlewares/authMiddleware.js";
 import { connectDB } from './config/db.js';
 import shareRoutes from './routes/shareRoutes.js'
+import searchRoutes from "./routes/searchRoutes.js";
+
 import LemonSqueezyRoutes from './routes/SubscriptionRoutes.js'
 import lemonSqueezyWebHookRoutes from './routes/webHookRoutes.js'
 import { verifyWebhookSignature } from './validators/LemonSqueezyFunctions.js'
@@ -36,10 +38,13 @@ app.use(
 app.use('/webhook/lemonsqueezy', express.raw({ type: 'application/json' }), verifyWebhookSignature, lemonSqueezyWebHookRoutes)
 app.use(express.json());
 app.use('/lsqueezy', checkAuth, LemonSqueezyRoutes)
-// app.use(limiter)
 
+// app.use(limiter)
 app.use("/directory", checkAuth, checkSubcription, directoryRoutes);
 app.use("/file", checkAuth, checkSubcription, fileRoutes);
+app.use("/search", checkAuth, (req, res, next) => {
+  next();
+}, searchRoutes);
 app.use("/user", userRoutes);
 app.use("/auth", authRoutes);
 app.use('/share', checkAuth, checkSubcription, shareRoutes)

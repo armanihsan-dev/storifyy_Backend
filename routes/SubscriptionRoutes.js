@@ -38,7 +38,6 @@ router.post('/cancel-subscription', async (req, res, next) => {
         const subscription = await Subscription.findOne(
             {
                 userId,
-                currentPeriodEnd: { $gt: now },
             },
             { LemonSqueezySubscriptionId: 1 }
         );
@@ -248,10 +247,10 @@ router.get('/my-subscription', async (req, res) => {
         plan: subscription.variantName,
         variantId: subscription.variantId,
 
-        status: subscription.status,            // raw Lemon status
-        hasAccess,                               // 🔑 source of truth
-        isGracePeriod,                           // UX helper
-        renewsAt: periodEnd,                 // canonical date
+        status: subscription.status,
+        hasAccess,
+        isGracePeriod,
+        renewsAt: periodEnd,
     });
 });
 
