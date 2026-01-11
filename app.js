@@ -11,7 +11,7 @@ import checkAuth from "./middlewares/authMiddleware.js";
 import { connectDB } from './config/db.js';
 import shareRoutes from './routes/shareRoutes.js'
 import searchRoutes from "./routes/searchRoutes.js";
-
+import accountRoutes from './routes/accountRoutes.js'
 import LemonSqueezyRoutes from './routes/SubscriptionRoutes.js'
 import lemonSqueezyWebHookRoutes from './routes/webHookRoutes.js'
 import { verifyWebhookSignature } from './validators/LemonSqueezyFunctions.js'
@@ -46,6 +46,7 @@ app.use("/search", checkAuth, (req, res, next) => {
   next();
 }, searchRoutes);
 app.use("/user", userRoutes);
+app.use('/account', checkAuth, accountRoutes)
 app.use("/auth", authRoutes);
 app.use('/share', checkAuth, checkSubcription, shareRoutes)
 

@@ -43,6 +43,11 @@ const userSchema = new Schema({
         type: Boolean,
         default: false
     },
+    isDisabled: {
+        type: Boolean,
+        default: false
+    },
+    disabledAt: Date,
     rootDirId: {
         type: Schema.Types.ObjectId,
         required: true

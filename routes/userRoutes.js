@@ -98,7 +98,7 @@ router.post('/login', authLimiter, validate(loginSchema, 'login'), login)
 
 router.get('/', checkAuth, async (req, res) => {
   const user = req.user;
-  const userRootDir = await Directory.findOne({ userId: user._id }).lean()
+  const userRootDir = await Directory.findOne({ userId: user._id })
   // NEVER send password, even hashed
   const userToBeSent = {
     _id: user._id,
@@ -109,6 +109,7 @@ router.get('/', checkAuth, async (req, res) => {
     maxUploadBytes: user.maxUploadBytes,
     maxStorage: user.maxStorageInBytes,
     usedStorage: userRootDir.size,
+    isDisabled: user.isDisabled,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
     hasPassword: !!user.password
