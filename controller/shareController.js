@@ -217,7 +217,6 @@ export const shareByEmail = async (req, res) => {
         const user = req.user
 
 
-
         const result = emailSchema.safeParse({ email })
         if (!result.success) {
             return res.status(400).json({ error: "Invalid email format" });
@@ -228,6 +227,11 @@ export const shareByEmail = async (req, res) => {
         }
         // 3. See if target user exists
         const targetUser = await User.findOne({ email });
+
+        //do not share with yourself
+        if (email === user.email) {
+            return res.status(400).json({ error: "You cannot share file with yourself" });
+        }
         if (!targetUser) {
             return res.status(404).json({ error: "Target user not found" });
         }

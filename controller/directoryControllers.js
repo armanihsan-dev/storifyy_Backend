@@ -38,7 +38,7 @@ export const getDirectory = async (req, res) => {
 export const createDirectory = async (req, res, next) => {
     try {
         const user = req.user;
-        const dirname = purify.sanitize(req.headers.foldername) || "New Folder";
+        const dirname = purify.sanitize(req.body.folderName) || "New Folder";
 
         const parentDirId = req.params.parentDirId
             ? req.params.parentDirId
@@ -107,7 +107,7 @@ export const getBreadcrumb = async (req, res, next) => {
     }
 };
 
-    
+
 
 
 export const renameDirectory = async (req, res, next) => {
@@ -179,8 +179,13 @@ export const deleteDirectory = async (req, res, next) => {
         const totalDeletedSize = totalSize + directoryData.size;
 
         // Delete physical files from s3
-        const keys = files.map(({ _id, extension }) => ({ Key: `${_id}${extension}` }))
-        await deleteS3Objects(keys)
+        const keys = files.map(({ _id, extension }) => ({
+            Key: extension.startsWith('.')
+                ? `${_id}${extension}`
+                : `${_id}.${extension}`,
+        }));
+
+        await deleteS3Objects(keys);
         // Delete documents
         await File.deleteMany({ _id: { $in: files.map(f => f._id) } })
             .session(session);

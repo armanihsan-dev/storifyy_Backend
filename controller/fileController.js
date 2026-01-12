@@ -169,9 +169,7 @@ export const renameFile = async (req, res, next) => {
 
     // Perform rename
     try {
-        await File.findByIdAndUpdate(id, { name: newFilename })
-        fileData.name = newFilename
-        await fileData.save()
+        await File.findByIdAndUpdate(id, { name: newFilename, extension: fileData.extension })
         return res.status(200).json({ message: "Renamed" });
     } catch (err) {
         err.status = 500;

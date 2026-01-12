@@ -54,12 +54,25 @@ export async function deleteS3Object(key) {
 }
 
 //detete files at once
-export async function deleteS3Objects(keys) {
+export async function deleteS3Objects(keys = []) {
+    if (!Array.isArray(keys) || keys.length === 0) {
+        return; // CRITICAL: avoid MalformedXML
+    }
+
+    const safeKeys = keys
+        .filter(obj => obj?.Key && typeof obj.Key === "string");
+
+    if (safeKeys.length === 0) {
+        return;
+    }
+
     const command = new DeleteObjectsCommand({
         Bucket: process.env.S3_BUCKET,
         Delete: {
-            Objects: keys
-        }
-    })
-    await s3Client.send(command)
+            Objects: safeKeys,
+            Quiet: false,
+        },
+    });
+
+    await s3Client.send(command);
 }

@@ -7,7 +7,7 @@ import redisClient from "../config/redis.js";
 import crypto from "crypto";
 
 export const registerUser = async ({ name, email, password, otp }) => {
-    
+
     const session = await mongoose.startSession();
     session.startTransaction();
 
