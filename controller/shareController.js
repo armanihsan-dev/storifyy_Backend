@@ -3,7 +3,7 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const projectRoot = path.resolve(__dirname, "..");
 import path from "path";
-import Share from "../models/shareModel.js";
+import Share from "../models/shareModel_tmp.js";
 import File from "../models/fileModel.js";
 import User from "../models/userModel.js";
 import Directory from './../models/directoryModel.js';

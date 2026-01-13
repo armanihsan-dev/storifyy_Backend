@@ -5,7 +5,7 @@ import { pauseSubscriptionInLemonSqueezy, unpauseSubscriptionInLemonSqueezy, can
 import redisClient from '../config/redis.js';
 import Directory from './../models/directoryModel.js';
 import File from './../models/fileModel.js';
-import Share from './../models/ShareModel.js';
+import Share from './../models/shareModel_tmp.js';
 import DirectoryShare from './../models/directoryShareModel.js';
 const router = express.Router();
 import mongoose from 'mongoose';

@@ -8,7 +8,7 @@ import fs from 'fs/promises'
 import File from './../models/fileModel.js';
 import User from '../models/userModel.js';
 import { ROLE_HIERARCHY } from './userController.js';
-import Share from '../models/shareModel.js';
+import Share from '../models/shareModel_tmp.js';
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const projectRoot = path.resolve(__dirname, "..");
