@@ -84,7 +84,8 @@ export const loginWithGoogle = async (req, res, next) => {
                 httpOnly: true,
                 signed: true,
                 maxAge: sessionExpiryTime * 1000,
-                sameSite: 'lax'
+                sameSite: 'none',
+                secure: true
             });
 
             return res.status(200).json({ message: "Logged in existing user" });
@@ -129,7 +130,7 @@ export const loginWithGoogle = async (req, res, next) => {
             res.cookie('sid', sessionId, {
                 httpOnly: true,
                 signed: true,
-                sameSite: 'lax',
+                sameSite: 'none',
                 maxAge: sessionExpiryTime * 1000
             });
 

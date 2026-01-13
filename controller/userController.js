@@ -45,7 +45,7 @@ export const login = async (req, res, next) => {
         res.cookie('sid', sessionId, {
             httpOnly: true,
             signed: true,
-            sameSite: 'lax',
+            sameSite: 'none',
             maxAge: sessionExpiryTime
         });
 
@@ -339,7 +339,7 @@ export const getShareableUsers = async (req, res) => {
             .limit(Number(limit))
             .lean()
 
-        res.status(200).json({ users }) 
+        res.status(200).json({ users })
     } catch (error) {
         console.error('getShareableUsers:', error)
         res.status(500).json({ error: 'Failed to fetch users' })
