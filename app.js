@@ -1,30 +1,39 @@
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import helmet from "helmet";
+
 import directoryRoutes from "./routes/directoryRoutes.js";
 import fileRoutes from "./routes/fileRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
-import { checkSubcription } from './middlewares/subscription.js'
-import './config/LemonSqueezy.js'
-import authRoutes from './routes/authRoutes.js'
-import checkAuth from "./middlewares/authMiddleware.js";
-import { connectDB } from './config/db.js';
-import shareRoutes from './routes/shareRoutes.js'
+import authRoutes from "./routes/authRoutes.js";
+import shareRoutes from "./routes/shareRoutes.js";
 import searchRoutes from "./routes/searchRoutes.js";
-import accountRoutes from './routes/accountRoutes.js'
-import LemonSqueezyRoutes from './routes/SubscriptionRoutes.js'
-import lemonSqueezyWebHookRoutes from './routes/webHookRoutes.js'
-import { verifyWebhookSignature } from './validators/LemonSqueezyFunctions.js'
-import helmet from 'helmet'
-import { limiter } from './middlewares/Limiter.js';
+import accountRoutes from "./routes/accountRoutes.js";
+import LemonSqueezyRoutes from "./routes/SubscriptionRoutes.js";
+import lemonSqueezyWebHookRoutes from "./routes/webHookRoutes.js";
 
-await connectDB()
+import checkAuth from "./middlewares/authMiddleware.js";
+import { checkSubcription } from "./middlewares/subscription.js";
+import { connectDB } from "./config/db.js";
+import { verifyWebhookSignature } from "./validators/LemonSqueezyFunctions.js";
+
+import {
+  authLimiter,
+  subscriptionLimiter,
+  userLimiter,
+  searchLimiter,
+} from "./middlewares/Limiter.js";
+
+import "./config/LemonSqueezy.js";
+
+await connectDB();
 
 const app = express();
-export const mySecretKey = process.env.MY_SECRET_KEY
+export const mySecretKey = process.env.MY_SECRET_KEY;
 
-app.use(cookieParser(mySecretKey))
-app.use(helmet())
+app.use(cookieParser(mySecretKey));
+app.use(helmet());
 
 app.use(
   cors({
@@ -33,31 +42,72 @@ app.use(
   })
 );
 
+/* ✅ Webhook (NO rate limit) */
+app.use(
+  "/webhook/lemonsqueezy",
+  express.raw({ type: "application/json" }),
+  verifyWebhookSignature,
+  lemonSqueezyWebHookRoutes
+);
 
-
-app.use('/webhook/lemonsqueezy', express.raw({ type: 'application/json' }), verifyWebhookSignature, lemonSqueezyWebHookRoutes)
 app.use(express.json());
-app.use('/lsqueezy', checkAuth, LemonSqueezyRoutes)
 
-// app.use(limiter)
-app.use("/directory", checkAuth, checkSubcription, directoryRoutes);
-app.use("/file", checkAuth, checkSubcription, fileRoutes);
-app.use("/search", checkAuth, (req, res, next) => {
-  next();
-}, searchRoutes);
+/* 🔴 Auth */
+app.use("/auth", authLimiter, authRoutes);
+
+/* 🔴 Subscription / payment */
+app.use(
+  "/lsqueezy",
+  checkAuth,
+  subscriptionLimiter,
+  LemonSqueezyRoutes
+);
+
+/* 🟡 User protected routes */
+app.use(
+  "/directory",
+  checkAuth,
+  checkSubcription,
+  userLimiter,
+  directoryRoutes
+);
+
+app.use(
+  "/file",
+  checkAuth,
+  checkSubcription,
+  userLimiter,
+  fileRoutes
+);
+
+app.use(
+  "/share",
+  checkAuth,
+  checkSubcription,
+  userLimiter,
+  shareRoutes
+);
+
+/* 🟢 Search */
+app.use(
+  "/search",
+  checkAuth,
+  searchLimiter,
+  searchRoutes
+);
+
+/* 🟢 Account & user */
+app.use("/account", checkAuth, userLimiter, accountRoutes);
 app.use("/user", userRoutes);
-app.use('/account', checkAuth, accountRoutes)
-app.use("/auth", authRoutes);
-app.use('/share', checkAuth, checkSubcription, shareRoutes)
 
+/* ❌ Error handler */
 app.use((err, req, res, next) => {
-  console.log(err);
-  res.status(err.status || 500).json({ message: "Something went wrong!!", error: err });
+  console.error(err);
+  res.status(err.status || 500).json({
+    message: "Something went wrong",
+  });
 });
 
 app.listen(process.env.NODE_SERVER_PORT, () => {
   console.log(`Server Started`);
 });
-
-
-
