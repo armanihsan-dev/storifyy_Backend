@@ -4,7 +4,12 @@ import { S3Client, PutObjectCommand, GetObjectCommand, HeadObjectCommand, Delete
 
 
 
-export const s3Client = new S3Client({ profile: 'learningNode', region: 'eu-north-1' })
+export const s3Client = new S3Client({
+    credentials: {
+        accessKeyId: process.env.S3_ACCESS_KEY_ID,
+        secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
+    }, region: 'eu-north-1'
+})
 
 export async function createUploadSignedURL({ key, contentType }) {
     const command = new PutObjectCommand({

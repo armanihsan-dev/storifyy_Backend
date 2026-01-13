@@ -62,6 +62,7 @@ export const loginWithGoogle = async (req, res, next) => {
             }
 
             const sessions = await redisClient.ft.search('userIdIdx', `@userId:{${existingUser._id}}`, { RETURN: [] })
+
             if (sessions.total >= 2) {
                 await redisClient.del(sessions.documents[0].id)
             }
