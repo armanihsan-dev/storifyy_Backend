@@ -31,6 +31,7 @@ await connectDB();
 
 const app = express();
 export const mySecretKey = process.env.MY_SECRET_KEY;
+app.set("trust proxy", 1);
 
 app.use(cookieParser(mySecretKey));
 app.use(helmet());
