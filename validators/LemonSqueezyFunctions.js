@@ -179,7 +179,7 @@ async function createNewCheckout(variantId, userId) {
     const checkoutData = {
         productOptions: {
             enabledVariants: [Number(variantId)],
-            redirect_url: "http://localhost:5173",
+            redirect_url: process.env.ORIGIN_CLIENT_URL,
         },
         checkoutOptions: {
             buttonColor: '#f0068bff',
