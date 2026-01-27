@@ -1,14 +1,25 @@
+import 'dotenv/config';
 import { createClient } from "redis";
 
-const redisClient = createClient({ url: process.env.REDIS_ATLAS_URL, password: process.env.REDIS_SERVER_PASS })
+if (!process.env.REDIS_ATLAS_URL) {
+    throw new Error("REDIS_ATLAS_URL is missing");
+}
+
+const redisClient = createClient({
+    url: process.env.REDIS_ATLAS_URL
+});
+
 redisClient.on("error", (err) => {
-    console.log("Redis Client Error", err)
-    process.exit(1)
+    console.error("Redis Client Error:", err.message);
 });
 
 await redisClient.connect();
+
 async function ensureIndexes() {
     try {
+        await redisClient.ft.info('userIdIdx');
+        console.log('Redis index already exists');
+    } catch {
         await redisClient.ft.create(
             'userIdIdx',
             {
@@ -23,15 +34,10 @@ async function ensureIndexes() {
                 PREFIX: 'session:',
             }
         );
-        console.log('Redis index userIdIdx created');
-    } catch (err) {
-        if (err.message.includes('Index already exists')) {
-            console.log('Redis index already exists');
-        } else {
-            throw err;
-        }
+        console.log('Redis index created');
     }
 }
 
 await ensureIndexes();
-export default redisClient
+
+export default redisClient;
