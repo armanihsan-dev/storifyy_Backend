@@ -36,6 +36,10 @@ app.set("trust proxy", 1);
 app.use(cookieParser(mySecretKey));
 app.use(helmet());
 
+
+app.get('/', (req, res) => {
+  res.status(200).json({ message: "Hello! this message is from storifyy" })
+})
 app.use(
   cors({
     origin: process.env.ORIGIN_CLIENT_URL,
