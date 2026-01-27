@@ -105,6 +105,13 @@ app.use(
 app.use("/account", checkAuth, userLimiter, accountRoutes);
 app.use("/user", userRoutes);
 
+
+//pm2 , aws ec2 instance
+app.get('/err', (req, res) => {
+  console.log('process exixted with error');
+  process.exit(1);
+})
+
 /* ❌ Error handler */
 app.use((err, req, res, next) => {
   console.error(err);
