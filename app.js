@@ -56,7 +56,7 @@ app.use(express.json());
 /* 🔴 Auth */
 app.use("/auth", authLimiter, authRoutes);
 
-/* 🔴 Subscription / payment */
+/* 🔴 Subscription / payment ..this text is add to check git in ubuntu*/
 app.use(
   "/lsqueezy",
   checkAuth,
