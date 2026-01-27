@@ -32,7 +32,7 @@ await connectDB();
 const app = express();
 export const mySecretKey = process.env.MY_SECRET_KEY;
 app.set("trust proxy", 1);
-
+console.log("REDIS_URL:", process.env.REDIS_ATLAS_URL);
 app.use(cookieParser(mySecretKey));
 app.use(helmet());
 
