@@ -15,15 +15,16 @@ const LMS_PRODUCTS = new Set([
 
 router.post('/create-subscription-checkout', async (req, res, next) => {
     try {
-        const { variantId } = req.body;
+        //uncommment this when get real bnk accnt
+        // const { variantId } = req.body;
 
-        if (!LMS_PRODUCTS.has(Number(variantId))) {
-            return res.status(400).json({ error: 'Invalid variant ID' });
-        }
+        // if (!LMS_PRODUCTS.has(Number(variantId))) {
+        //     return res.status(400).json({ error: 'Invalid variant ID' });
+        // }
 
-        const url = await createNewCheckout(variantId, req.user._id);
+        // const url = await createNewCheckout(variantId, req.user._id);
 
-        res.json({ url });
+        res.json({ message: "Service will be available soon!" });
     } catch (err) {
         next(err);
     }
