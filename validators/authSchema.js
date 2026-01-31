@@ -1,7 +1,7 @@
 import { z } from 'zod/v4'
 const passRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/
 const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
-const passMessage = "Please choose a stronger password"
+const passMessage = "Please choose a stronger password that includes uppercase letters, numbers, and symbols."
 
 
 // 👉 Reusable fields
