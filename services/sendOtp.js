@@ -1,32 +1,28 @@
-import nodemailer from "nodemailer";
 import OTP from "../models/otpModel.js";
+import { Resend } from "resend";
 
-export async function sendOtpService(email, title = "") {
-  // Generate a 4-digit OTP
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+export async function sendOtpService(email) {
+  // Generate 4-digit OTP
   const otp = Math.floor(1000 + Math.random() * 9000).toString();
 
-  // Store or update OTP for this email
+  // Save OTP in DB
   await OTP.findOneAndUpdate(
     { email },
     { otp, createdAt: new Date() },
     { upsert: true, new: true }
   );
-  // Create reusable transporter using Gmail SMTP
-  const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.EMAIL_USER, // e.g. your Gmail
-      pass: process.env.EMAIL_PASS, // App password
-    },
-  });
 
-  // Email content
-  const mailOptions = {
-    from: `"Storage App" <${process.env.EMAIL_USER}>`,
-    to: email,
-    subject: `Your Storage App OTP Code ${title} 🔐`,
-    html: `
-<div style="
+  try {
+
+    // Send email
+    await resend.emails.send({
+      from: "Storifyy <onboarding@resend.dev>",
+      to: email,
+      subject: "Your OTP Code 🔐",
+      html: `
+    <div style="
   font-family: 'Poppins', Roboto, Helvetica, Arial, sans-serif;
   background: #f3f4f6;
   padding: 45px 0;
@@ -98,17 +94,16 @@ export async function sendOtpService(email, title = "") {
     </p>
   </div>
 </div>
-`,
+    `,
+    });
 
-  };
-
-
-  try {
-    await transporter.sendMail(mailOptions);
     return { success: true, message: "OTP sent successfully" };
-  } catch (error) {
-    console.error("Error sending OTP:", error);
-    return { success: false, message: "Failed to send OTP", error };
+
+  } catch (err) {
+    console.error("Resend error:", err);
+    return { success: false, message: "Failed to send OTP" };
   }
+
+  return { success: true, message: "OTP sent successfully" };
 }
 
