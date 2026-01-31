@@ -18,7 +18,7 @@ export async function sendOtpService(email) {
 
     // Send email
     await resend.emails.send({
-      from: "Storifyy <onboarding@resend.dev>",
+      from: "Storifyy Support <support@storifyy.com>",
       to: email,
       subject: "Your OTP Code 🔐",
       html: `
